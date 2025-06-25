@@ -1,0 +1,95 @@
+# Final Project
+# Log regression using STD, PCA, LOG REG, ROC & RISK MAP
+# Cassandra Tolton NSHE: 5006917872
+
+# libraries
+# Data manipulation
+import pandas  as pd # used for dataframe
+import numpy as np # preprocessing - changing non ordinal data to numerical
+from sklearn.preprocessing import StandardScaler # preprocessing - used to split train sets
+from sklearn.decomposition import PCA # preprocessing - used for feature selection
+from sklearn.model_selection import train_test_split # preprocessing - used for splitting data into testing and training
+from sklearn.linear_model import LogisticRegression # algo used for the log reg
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report, roc_auc_score  # Testing - used for confustion matrix and to calculate accuracy score
+                                                                                                    # Testing -use for the classification report to display results
+                                                                                                    # Validation - use to validate data using roc curve
+
+# Risk level sort function
+# function that returns a val to indicate what their risk levels are
+    # no - 0
+    # low - 1
+    # mod - 2
+    # High - 3
+    # invalid/error - -1
+def rsk_lvl(p):
+    # No risk
+    if ( p["cardio"] == 0 and p["cholesterol"] <= 1 and p["gluc"] <= 1 and p["ap_hi"] <= 120 and p["ap_lo"] <= 80 and p["alco"] <= 0 and p["smoke"] <= 0):
+        return 0  
+    # Low risk
+    elif ( p["cardio"] == 0 and p["cholesterol"] <= 2 and p["gluc"] <= 2 and p["ap_hi"] <= 130 and p["ap_lo"] <= 85):
+        return 1  
+    # Moderate risk
+    elif ( p["cardio"] <= 1 and p["cholesterol"] <= 3 and p["gluc"] <= 3  and 130 < p["ap_hi"] <= 149 and 85 < p["ap_lo"] <= 89):
+        return 2  
+    # High risk
+    elif ( p["cardio"] <= 1 and p["cholesterol"] <= 3 and p["gluc"] <= 3 and p["ap_hi"] <= 200 and p["ap_lo"] <= 120 ):
+        return 3  
+    # Error
+    return 4 
+
+# import cardio data into a pandas dataframe
+path = 'cardio_train.csv'
+df = pd.read_csv(path)
+
+# use the rsk lvl function to filter through the rows of the data
+df["risk_level"] = df.apply(rsk_lvl, axis=1)
+
+# remove any entries that are invalid
+df = df[df["risk_level"] != 4]
+
+#seperate the labels from the datas
+X = df.iloc[:, :-1] # data
+Y = df.iloc[:, -1]  # labels
+
+# split data into training and testing
+X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size = 0.20, random_state = 42)
+
+#2. Data Preprocessing
+#normalizing the data
+sc = StandardScaler()
+X_train = sc.fit_transform(X_train)
+X_test = sc.transform(X_test)
+
+# feature selection using PCA -> compenants three
+pca = PCA(n_components=3)
+X_train = sc.fit_transform(X_train)
+X_test = sc.transform(X_test)
+
+#using log regression on the data
+clf = LogisticRegression()
+clf.fit(X_train, y_train)
+
+#3. Model Training
+#creating predictions matrix
+y_pred = clf.predict(X_test)
+
+#4. Model Evaluation
+#Making the Confusion Matrix
+CM = confusion_matrix(y_test, y_pred)
+
+#displaying the confustion matrix
+CMLabels = ["No Risk", "Low Risk", "Moderate Risk", "High Risk"]
+print("\nConfusion Matrix For LogReg:\n", pd.DataFrame(CM, columns=["Predicted-No Risk", "Predicted-Low Risk", "Predicted-Moderate Risk", "Predicted-High Risk"],
+                                             index=["Acutal-No Risk", "Acutal-Low Risk", "Acutal-Moderate Risk", "Acutal-High Risk"]))
+# classification Report
+Finalreport = classification_report(y_test, y_pred, target_names=CMLabels, zero_division=0)
+print("\nClassification Report For LogReg:\n", Finalreport)
+
+#get the accuracy score using the test and predictions
+AS= accuracy_score(y_test, y_pred) 
+print("LogReg Accuracy Score = ", np.round(AS * 100, 2), "%")
+
+# roc curve validation
+y_pred = clf.predict_proba(X_test)
+roc_auc = roc_auc_score(y_test, y_pred, multi_class='ovr')
+print("Roc curve accuracy: ", np.round(roc_auc * 100, 2), "%")
